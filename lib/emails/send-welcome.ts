@@ -8,10 +8,10 @@ export async function sendWelcomeEmail({ name, email }: { name: string | null | 
     try {
         // Send the email using the Resend API
         await EmailClient.emails.send({
-            from: "OpenAssistantGPT <no-reply@openassistantgpt.io>",
-            to: email as string,
-            subject: `Welcome to ${siteConfig.name}!`,
-            react: emailTemplate,
+          from: "Chatflows <info@workwhales.com>",
+          to: email as string,
+          subject: `Welcome to ${siteConfig.name}!`,
+          react: emailTemplate,
         });
     } catch (error) {
         // Log any errors and re-throw the error
