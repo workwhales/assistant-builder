@@ -1,0 +1,240 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("POSTGRES_PRISMA_URL")
+  directUrl = env("POSTGRES_DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model OpenAIConfig {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  globalAPIKey String
+  createdAt    DateTime @default(now()) @map(name: "created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ChatbotFiles {
+  id         String   @id @default(cuid())
+  assignedAt DateTime @default(now())
+
+  chatbotId String
+  chatbot   Chatbot @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
+
+  fileId String
+  file   File   @relation(fields: [fileId], references: [id], onDelete: Cascade)
+}
+
+model ChatbotMessagesExport {
+  id              String   @id @default(cuid())
+  createdAt       DateTime @default(now()) @map(name: "created_at")
+  blobUrl         String
+  blobDownloadUrl String
+  lastXDays       Int
+
+  chatbotId String
+  chatbot   Chatbot @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
+}
+
+model ChatbotErrors {
+  id           String   @id @default(cuid())
+  createdAt    DateTime @default(now()) @map(name: "created_at")
+  errorMessage String
+  threadId     String
+  chatbotId    String
+  chatbot      Chatbot  @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
+}
+
+model Chatbot {
+  id                  String        @id @default(cuid())
+  name                String
+  userId              String
+  openaiId            String
+  createdAt           DateTime      @default(now()) @map(name: "created_at")
+  openaiKey           String
+  modelId             String?
+  model               ChatbotModel? @relation(fields: [modelId], references: [id])
+  prompt              String?
+  welcomeMessage      String
+  chatbotErrorMessage String        @default("Oops! An error has occurred. If the issue persists, feel free to reach out to our support team for assistance. We're here to help!")
+  isImported          Boolean       @default(false)
+
+  chatTitle              String  @default("Chat with us")
+  chatMessagePlaceHolder String  @default("Type a message...")
+  rightToLeftLanguage    Boolean @default(false)
+
+  bubbleColor                 String  @default("#FFFFFF")
+  bubbleTextColor             String  @default("#000000")
+  chatHeaderBackgroundColor   String  @default("#FFFFFF")
+  chatHeaderTextColor         String  @default("#000000")
+  chatbotReplyBackgroundColor String  @default("#e4e4e7")
+  chatbotReplyTextColor       String  @default("#000000")
+  userReplyBackgroundColor    String  @default("#e4e4e7")
+  userReplyTextColor          String  @default("#000000")
+  chatbotLogoURL              String?
+
+  chatInputStyle String @default("default")
+
+  inquiryEnabled                  Boolean @default(false)
+  inquiryLinkText                 String  @default("Contact our support team")
+  inquiryTitle                    String  @default("Contact our support team")
+  inquirySubtitle                 String  @default("Our team is here to help you with any questions you may have. Please provide us with your email and a brief message so we can assist you.")
+  inquiryEmailLabel               String  @default("Email")
+  inquiryMessageLabel             String  @default("Message")
+  inquirySendButtonText           String  @default("Send message")
+  inquiryAutomaticReplyText       String  @default("Your inquiry has been sent. Our team will get back to you shortly.")
+  inquiryDisplayLinkAfterXMessage Int     @default(1)
+
+  displayBranding            Boolean @default(true)
+  chatFileAttachementEnabled Boolean @default(false)
+
+  maxCompletionTokens Int?
+  maxPromptTokens     Int?
+
+  bannedIps       String[] @default([])
+  allowEveryone   Boolean  @default(true)
+  allowedIpRanges String[] @default([])
+
+  user                  User                    @relation(fields: [userId], references: [id])
+  ChatbotFiles          ChatbotFiles[]
+  ClientInquiries       ClientInquiries[]
+  ChatbotErrors         ChatbotErrors[]
+  ChatbotMessagesExport ChatbotMessagesExport[]
+
+  @@map(name: "chatbots")
+}
+
+model File {
+  id           String   @id @default(cuid())
+  userId       String
+  name         String
+  openAIFileId String   @unique
+  createdAt    DateTime @default(now()) @map(name: "created_at")
+  blobUrl      String
+
+  crawlerId String?
+  crawler   Crawler? @relation(fields: [crawlerId], references: [id], onDelete: Cascade)
+
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ChatbotFiles ChatbotFiles[]
+
+  @@map(name: "files")
+}
+
+model ChatbotModel {
+  id      String    @id @default(cuid())
+  name    String
+  Chatbot Chatbot[]
+
+  @@map(name: "models")
+}
+
+model ClientInquiries {
+  id        String    @id @default(cuid())
+  createdAt DateTime  @default(now())
+  threadId  String
+  email     String
+  inquiry   String
+  chatbotId String
+  chatbot   Chatbot   @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
+  deletedAt DateTime?
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  message   String
+  createdAt DateTime @default(now()) @map(name: "created_at")
+  response  String
+  threadId  String   @default("")
+
+  from String @default("unknown")
+
+  userIP String?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  chatbotId String
+
+  @@map(name: "messages")
+}
+
+model Crawler {
+  id              String   @id @default(cuid())
+  name            String
+  createdAt       DateTime @default(now()) @map(name: "created_at")
+  userId          String
+  crawlUrl        String
+  urlMatch        String
+  selector        String
+  maxPagesToCrawl Int
+
+  user User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  File File[]
+
+  @@map(name: "crawlers")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime  @default(now()) @map(name: "created_at")
+
+  accounts     Account[]
+  sessions     Session[]
+  Chatbot      Chatbot[]
+  Crawler      Crawler[]
+  OpenAIConfig OpenAIConfig[]
+  File         File[]
+
+  stripeCustomerId         String?   @unique @map(name: "stripe_customer_id")
+  stripeSubscriptionId     String?   @unique @map(name: "stripe_subscription_id")
+  stripePriceId            String?   @map(name: "stripe_price_id")
+  stripeCurrentPeriodEnd   DateTime? @map(name: "stripe_current_period_end")
+  stripeSubscriptionStatus String?
+  Message                  Message[]
+
+  inquiryEmailEnabled   Boolean @default(true)
+  marketingEmailEnabled Boolean @default(true)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
