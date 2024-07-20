@@ -4,11 +4,11 @@ export const siteConfig: SiteConfig = {
   name: "OpenAssistantGPT",
   description:
     "An Open-Source SaaS Platform for Crafting Chatbots with OpenAI's Assistant.",
-  url: "https://www.openassistantgpt.io/",
-  ogImage: "https://www.openassistantgpt.io/dashboard.png",
+  url: "https://chatflows.co/",
+  ogImage: "https://www.chatfoes.co/dashboard.png",
   links: {
-    twitter: "https://twitter.com/oassistantgpt",
-    github: "https://github.com/marcolivierbouch/OpenAssistantGPT",
-    productHunt: "https://www.producthunt.com/posts/openassistantgpt",
+    twitter: "https://twitter.com",
+    github: "https://github.com/workwhales/",
+    productHunt: "https://www.producthunt.com/",
   },
 }
