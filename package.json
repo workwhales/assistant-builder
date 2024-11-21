@@ -59,7 +59,7 @@
     "next": "^14.2.2",
     "next-contentlayer": "^0.3.4",
     "next-themes": "^0.2.1",
-    "oas": "^24.1.0",
+    "oas": "^25.0.3",
     "openai": "^4.47.1",
     "openai-edge": "^1.2.2",
     "react": "^18.2.0",
