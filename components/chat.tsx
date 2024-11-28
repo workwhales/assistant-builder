@@ -20,6 +20,7 @@ import { FooterText } from "./chat-footer-text";
 import { ChatMessage } from "./chat-message"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog"
 import { useEnterSubmit } from '@/hooks/use-enter-submit'
+import { ChatHistory } from "./chat-history"
 
 interface ChatbotProps {
   chatbot: Chatbot
@@ -41,12 +42,10 @@ export function Chat({ chatbot, defaultMessage, className, withExitX = false, cl
 
   let inputFileRef = useRef<HTMLInputElement>(null);
 
-  const [chatThreadId, setChatThreadId] = useState<string | null>()
-
   const { formRef, onKeyDown } = useEnterSubmit()
 
-  const { status, messages, input, submitMessage, handleInputChange, error, threadId } =
-    useAssistant({ api: `/api/chatbots/${chatbot.id}/chat`, inputFile: inputFileRef.current?.files ? inputFileRef.current.files[0] : undefined, threadId: chatThreadId || '', clientSidePrompt: clientSidePrompt });
+  const { status, messages, input, submitMessage, handleInputChange, error, threadId, setThreadId, threads, deleteThreadFromHistory } =
+    useAssistant({ id: chatbot.id, api: `/api/chatbots/${chatbot.id}/chat`, inputFile: inputFileRef.current?.files ? inputFileRef.current.files[0] : undefined, clientSidePrompt: clientSidePrompt });
 
   function handleSubmitMessage(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -59,12 +58,6 @@ export function Chat({ chatbot, defaultMessage, className, withExitX = false, cl
       inputFileRef.current.value = '';
     }
   }
-
-  useEffect(() => {
-    if (threadId) {
-      setChatThreadId(threadId)
-    }
-  }, [threadId])
 
   useEffect(() => {
     if (status === 'awaiting_message') {
@@ -142,17 +135,34 @@ export function Chat({ chatbot, defaultMessage, className, withExitX = false, cl
     window.parent.postMessage('closeChat', '*')
   }
 
+  function downloadTranscript() {
+    const transcript =
+      `assistant: ${chatbot.welcomeMessage}\n\n` +
+      messages
+        .map((msg: Message) => `${msg.role}: ${msg.content}`)
+        .join('\n\n');
+    const blob = new Blob([transcript], { type: 'text/plain' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    a.download = 'chat_transcript.txt';
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+  }
 
   return (
     <>
-      <CardHeader style={{ background: chatbot.chatHeaderBackgroundColor }} className="sticky z-50 top-0 border-b p-4">
+      {chatbot.chatHistoryEnabled && <ChatHistory threads={threads} setThreadId={setThreadId} threadId={threadId} deleteThreadFromHistory={deleteThreadFromHistory}></ChatHistory>}
+      <CardHeader style={{ background: chatbot.chatHeaderBackgroundColor }} className="sticky z-30 top-0 border-b p-4">
         <div className="flex flex-row justify-between items-center">
           <h2 className="text-xl font-bold flex items-center h-10 gap-2">
             <div style={{ color: chatbot.chatHeaderTextColor }}>
               {chatbot.chatTitle}
             </div>
           </h2>
-          <div className="flex flex-row items-center">
+          <div className="flex flex-row items-center space-x-4">
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -168,6 +178,23 @@ export function Chat({ chatbot, defaultMessage, className, withExitX = false, cl
                 </Button>
               </TooltipTrigger>
               <TooltipContent>New Chat</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={'nothing'}
+                  className="cursor-pointer"
+                  size={'icon'}
+                  onClick={downloadTranscript}
+                >
+                  <Icons.download
+                    style={{ color: chatbot.chatHeaderTextColor }}
+                    className="h-4 w-4"
+                  />
+                  <span className="sr-only">Download Transcript</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Download Transcript</TooltipContent>
             </Tooltip>
             {withExitX &&
               <div className="items-end">
@@ -185,12 +212,13 @@ export function Chat({ chatbot, defaultMessage, className, withExitX = false, cl
         </div>
 
       </CardHeader>
+
       <div
         className="group w-full overflow-auto pl-0 peer-[[data-state=open]]:lg:pl-[250px] peer-[[data-state=open]]:xl:pl-[300px]"
       >
 
         <div
-          className={cn('pb-[200px] overflow-auto pl-5 sm:pl-20 pr-5 sm:pr-20 md:pb-[200px] pt-4 md:pt-10', className)}
+          className={cn('pb-[200px] overflow-auto pl-6 sm:pl-20 pr-6 sm:pr-20 md:pb-[200px] pt-4 md:pt-10', className)}
         >
           <ChatMessage isFirst={true} chatbot={chatbot} message={{ id: '0', role: "assistant", content: chatbot.welcomeMessage }} />
           <div className="flex-grow overflow-y-auto space-y-6 flex flex-col order-2">
@@ -199,20 +227,20 @@ export function Chat({ chatbot, defaultMessage, className, withExitX = false, cl
                 <ChatMessage chatbot={chatbot} key={index} message={message} />
               );
             })}
-            </div>
-            {status !== "awaiting_message" &&
+          </div>
+          {status !== "awaiting_message" &&
             <div className="mt-4">
               <ChatMessage chatbot={chatbot} message={{ id: 'waiting', role: "assistant", content: 'loading' }} />
             </div>
-            }
-            <div id="end" ref={containerRef}> </div>
-          </div>
-          <div className="fixed inset-x-0 bottom-0 w-full ease-in-out animate-in peer-[[data-state=open]]:group-[]:lg:pl-[250px] peer-[[data-state=open]]:group-[]:xl:pl-[300px]">
-            <div className={`mx-auto ${chatbot.chatInputStyle === 'default' ? 'sm:max-w-2xl sm:px-4' : ''}`}>
+          }
+          <div id="end" ref={containerRef}> </div>
+        </div>
+        <div className="fixed inset-x-0 bottom-0 w-full ease-in-out animate-in peer-[[data-state=open]]:group-[]:lg:pl-[250px] peer-[[data-state=open]]:group-[]:xl:pl-[300px]">
+          <div className={`mx-auto ${chatbot.chatInputStyle === 'default' ? 'sm:max-w-2xl sm:px-4' : ''}`}>
             <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-2 px-4 ">
               {chatbot.inquiryEnabled && !hideInquiry && messages.length >= chatbot.inquiryDisplayLinkAfterXMessage &&
-              <div className="relative">
-                <button onClick={() => { setHideInquiry(true) }} className="bg-zinc-100 shadow hover:bg-zinc-200 border rounded absolute top-0 right-0 -mt-1 -mr-1">
+                <div className="relative">
+                  <button onClick={() => { setHideInquiry(true) }} className="bg-zinc-100 shadow hover:bg-zinc-200 border rounded absolute top-0 right-0 -mt-1 -mr-1">
                     <Icons.close className="h-4 w-4" />
                   </button>
                   <Dialog open={open} onOpenChange={setOpen}>
@@ -269,11 +297,19 @@ export function Chat({ chatbot, defaultMessage, className, withExitX = false, cl
                   <div className="flex w-full sm:w-1/2 items-center p-2 bg-white border rounded-lg shadow-sm">
                     <Icons.document className="text-gray-400 w-6 h-6 flex-shrink-0" />
                     <div className="flex flex-col pl-3 pr-6 flex-1 min-w-0">
-                      <span className="font-sm text-gray-800 truncate">{inputFileRef.current?.files[0].name}</span>
-                      <span className="text-sm text-gray-500">Document</span>
+                      <span className="font-sm text-gray-800 truncate">{inputFileRef.current?.files![0].name}</span>
+                      <span className="text-sm text-gray-500">
+                        {inputFileRef.current?.files![0].type === 'image/jpeg'
+                          ? 'Image'
+                          : inputFileRef.current?.files![0].type === 'image/png'
+                            ? 'Image'
+                            : inputFileRef.current?.files![0].type === 'image/svg+xml'
+                              ? 'Image'
+                              : 'Document'}
+                      </span>
                     </div>
                     <Button type="button" variant="ghost" className="flex-shrink-0" onClick={() => {
-                      inputFileRef.current.value = '';
+                      inputFileRef.current!.value = '';
                       setFileUploaded(false);
                     }}>
                       <Icons.close className="text-gray-400 w-4 h-4" />
@@ -301,7 +337,7 @@ export function Chat({ chatbot, defaultMessage, className, withExitX = false, cl
                       />
                     </div>
                   }
-                  <div className={chatbot.chatFileAttachementEnabled ?  `pl-4` : `` + ` pr-8`}>
+                  <div className={chatbot.chatFileAttachementEnabled ? `pl-4` : `` + ` pr-8`}>
                     <Textarea
                       ref={inputRef}
                       tabIndex={0}
